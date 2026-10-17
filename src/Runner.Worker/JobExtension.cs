@@ -633,6 +633,13 @@ namespace GitHub.Runner.Worker
                         {
                             foreach (var checkUrl in checkUrls)
                             {
+                                if (!Uri.TryCreate(checkUrl, UriKind.Absolute, out var checkUri) ||
+                                    !string.Equals(checkUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    Trace.Warning($"Skip non-HTTPS server connectivity and DNS check for {checkUrl}.");
+                                    continue;
+                                }
+
                                 _connectivityAndDNSCheckTasks.Add(CheckConnectivity(checkUrl, accessToken: string.Empty, timeoutInSeconds: 5, checkDNS: true));
                             }
                         }

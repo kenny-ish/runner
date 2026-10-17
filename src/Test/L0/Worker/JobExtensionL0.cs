@@ -1090,6 +1090,36 @@ namespace GitHub.Runner.Common.Tests.Worker
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task InitializeJob_SkipsNonHttpsConnectivityAndDnsChecks()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                _message.Resources.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase))
+                    .Data["ConnectivityAndDNSChecks"] = StringUtil.ConvertToJson(new List<string>
+                    {
+                        "https://localhost:0/_dns",
+                        "http://localhost:0/_dns",
+                    });
+
+                var jobExtension = new JobExtension();
+                jobExtension.Initialize(hc);
+
+                _actionManager.Setup(x => x.PrepareActionsAsync(It.IsAny<IExecutionContext>(), It.IsAny<IEnumerable<Pipelines.JobStep>>(), It.IsAny<Guid>()))
+                              .Returns(Task.FromResult(new PrepareResult(new List<JobExtensionRunner>(), new Dictionary<Guid, IActionRunner>())));
+
+                await jobExtension.InitializeJob(_jobEc, _message);
+
+                var tasks = typeof(JobExtension).GetField("_connectivityAndDNSCheckTasks", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    ?.GetValue(jobExtension) as System.Collections.ICollection;
+
+                Assert.NotNull(tasks);
+                Assert.Equal(1, tasks.Count);
+            }
+        }
+
         private void EnableDebuggerOnMessage(TestHostContext hc)
         {
             _message.EnableDebugger = true;
